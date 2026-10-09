@@ -24,7 +24,7 @@ class EntityNotFoundError(VehicleError):
 
 class DataFormatError(VehicleError):
     """Ошибка формата данных при чтении/записи JSON или XML."""
-    
+
 class Vehicle(ABC):
     """Абстрактный базовый класс транспортного средства."""
 
@@ -139,3 +139,171 @@ class CargoVehicle(Vehicle):
             )
         except (TypeError, ValueError) as exc:
             raise DataFormatError(f"Ошибка чтения данных CargoVehicle из XML: {exc}") from exc
+# =========================================================================
+# 3. УПРАВЛЕНИЕ ХРАНИМЫМИ ДАННЫМИ ПО СИСТЕМЕ CRUD (2 класса)
+# =========================================================================
+class PassengerVehicleRepository:
+    """Репозиторий, реализующий полный цикл CRUD для пассажирского транспорта."""
+
+    def __init__(self) -> None:
+        self._vehicles: Dict[str, PassengerVehicle] = {}
+
+    def create(self, vehicle: PassengerVehicle) -> None:
+        """[C]reate: Зарегистрировать новое транспортное средство."""
+        if vehicle.vin in self._vehicles:
+            raise DuplicateEntityError(f"Транспортное средство с VIN {vehicle.vin} уже существует.")
+        self._vehicles[vehicle.vin] = vehicle
+
+    def read_all(self) -> List[PassengerVehicle]:
+        """[R]ead: Вернуть весь список пассажирского транспорта."""
+        return list(self._vehicles.values())
+
+    def read_by_vin(self, vin: str) -> PassengerVehicle:
+        """[R]ead: Найти ТС по его уникальному VIN."""
+        vin_upper = vin.strip().upper()
+        if vin_upper not in self._vehicles:
+            raise EntityNotFoundError(f"Пассажирское ТС с VIN {vin_upper} не найдено.")
+        return self._vehicles[vin_upper]
+
+    def update(self, vin: str, updated_vehicle: PassengerVehicle) -> None:
+        """[U]pdate: Изменить параметры существующего ТС."""
+        vin_upper = vin.strip().upper()
+        if vin_upper not in self._vehicles:
+            raise EntityNotFoundError(f"Транспорт с VIN {vin_upper} не найден для обновления.")
+        if vin_upper != updated_vehicle.vin:
+            raise ValidationError("Изменение VIN-кода при обновлении записи запрещено.")
+        self._vehicles[vin_upper] = updated_vehicle
+
+    def delete(self, vin: str) -> None:
+        """[D]elete: Снять ТС с учета (удалить из каталога)."""
+        vin_upper = vin.strip().upper()
+        if vin_upper not in self._vehicles:
+            raise EntityNotFoundError(f"Транспорт с VIN {vin_upper} не найден для удаления.")
+        del self._vehicles[vin_upper]
+
+    def clear(self) -> None:
+        """Очистить локальное хранилище репозитория."""
+        self._vehicles.clear()
+
+
+class CargoVehicleRepository:
+    """Репозиторий, реализующий полный цикл CRUD для грузового транспорта."""
+
+    def __init__(self) -> None:
+        self._vehicles: Dict[str, CargoVehicle] = {}
+
+    def create(self, vehicle: CargoVehicle) -> None:
+        """[C]reate: Зарегистрировать новый грузовик."""
+        if vehicle.vin in self._vehicles:
+            raise DuplicateEntityError(f"Грузовое ТС с VIN {vehicle.vin} уже существует.")
+        self._vehicles[vehicle.vin] = vehicle
+
+    def read_all(self) -> List[CargoVehicle]:
+        """[R]ead: Получить весь список грузового транспорта."""
+        return list(self._vehicles.values())
+
+    def read_by_vin(self, vin: str) -> CargoVehicle:
+        """[R]ead: Найти грузовое ТС по VIN."""
+        vin_upper = vin.strip().upper()
+        if vin_upper not in self._vehicles:
+            raise EntityNotFoundError(f"Грузовое ТС с VIN {vin_upper} не найдено.")
+        return self._vehicles[vin_upper]
+
+    def update(self, vin: str, updated_vehicle: CargoVehicle) -> None:
+        """[U]pdate: Обновить информацию о грузовом ТС."""
+        vin_upper = vin.strip().upper()
+        if vin_upper not in self._vehicles:
+            raise EntityNotFoundError(f"Грузовик с VIN {vin_upper} не найден для обновления.")
+        if vin_upper != updated_vehicle.vin:
+            raise ValidationError("Изменение VIN-кода при обновлении записи запрещено.")
+        self._vehicles[vin_upper] = updated_vehicle
+
+    def delete(self, vin: str) -> None:
+        """[D]elete: Удалить грузовик по его VIN."""
+        vin_upper = vin.strip().upper()
+        if vin_upper not in self._vehicles:
+            raise EntityNotFoundError(f"Грузовик с VIN {vin_upper} не найден для удаления.")
+        del self._vehicles[vin_upper]
+
+    def clear(self) -> None:
+        """Очистить локальное хранилище репозитория."""
+        self._vehicles.clear()
+# =========================================================================
+# 4. ФАСАД СИСТЕМЫ УПРАВЛЕНИЯ АВТОПАРКОМ (1 класс)
+# =========================================================================
+class FleetManager:
+    """Единый диспетчерский центр для работы с файлами и репозиториями автопарка."""
+
+    def __init__(self) -> None:
+        self.passenger_repo: PassengerVehicleRepository = PassengerVehicleRepository()
+        self.cargo_repo: CargoVehicleRepository = CargoVehicleRepository()
+
+    # --- Подсистема JSON (Пассажирский транспорт) ---
+    def save_passenger_json(self, path: str) -> None:
+        """Экспорт коллекции пассажирского транспорта в JSON-файл."""
+        data = [v.to_dict() for v in self.passenger_repo.read_all()]
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+        except OSError as exc:
+            raise DataFormatError(f"Ошибка сохранения JSON по пути {path}: {exc}") from exc
+
+    def load_passenger_json(self, path: str) -> None:
+        """Импорт коллекции пассажирского транспорта из JSON-файла."""
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise DataFormatError(f"Ошибка загрузки JSON из файла {path}: {exc}") from exc
+        if not isinstance(data, list):
+            raise DataFormatError("Неверная структура данных JSON (ожидался корневой список)")
+
+        self.passenger_repo.clear()
+        for item in data:
+            self.passenger_repo.create(PassengerVehicle.from_dict(item))
+
+    # --- Подсистема XML (Грузовой транспорт) ---
+    def save_cargo_xml(self, path: str) -> None:
+        """Экспорт коллекции грузового транспорта в XML-файл."""
+        root = ET.Element("cargo_fleet")
+        for vehicle in self.cargo_repo.read_all():
+            root.append(vehicle.to_xml())
+        tree = ET.ElementTree(root)
+        try:
+            tree.write(path, encoding="utf-8", xml_declaration=True)
+        except OSError as exc:
+            raise DataFormatError(f"Ошибка сохранения XML по пути {path}: {exc}") from exc
+
+    def load_cargo_xml(self, path: str) -> None:
+        """Импорт коллекции грузового транспорта из XML-файла."""
+        try:
+            tree = ET.parse(path)
+        except (OSError, ET.ParseError) as exc:
+            raise DataFormatError(f"Ошибка разбора структуры XML из файла {path}: {exc}") from exc
+        root = tree.getroot()
+        if root.tag != "cargo_fleet":
+            raise DataFormatError(f"Некорректный корневой тег XML: <{root.tag}> вместо <cargo_fleet>")
+
+        self.cargo_repo.clear()
+        for elem in root.findall("vehicle"):
+            self.cargo_repo.create(CargoVehicle.from_xml(elem))
+
+    def print_fleet_report(self) -> None:
+        """Вывод сводного отчета о состоянии всего автопарка."""
+        print("=" * 85)
+        print(" СВОДНАЯ ВЕДОМОСТЬ ТРАНСПОРТНЫХ СРЕДСТВ АВТОПАРКА")
+        print("=" * 85)
+        print("ПАССАЖИРСКИЙ АВТОТРАНСПОРТ (База JSON):")
+        p_vehicles = self.passenger_repo.read_all()
+        if not p_vehicles:
+            print("  [Транспортные средства отсутствуют]")
+        for pv in p_vehicles:
+            print("  •", pv)
+
+        print("\nГРУЗОВОЙ И СПЕЦИАЛЬНЫЙ АВТОТРАНСПОРТ (База XML):")
+        c_vehicles = self.cargo_repo.read_all()
+        if not c_vehicles:
+            print("  [Транспортные средства отсутствуют]")
+        for cv in c_vehicles:
+            print("  •", cv)
+        print("=" * 85)
