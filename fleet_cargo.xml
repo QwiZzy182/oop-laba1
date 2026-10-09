@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<cargo_fleet>
+    <vehicle>
+        <vin>VINCARGO01</vin>
+        <brand>Scania</brand>
+        <model>R500</model>
+        <price>9200000.0</price>
+        <load_capacity_tons>25.5</load_capacity_tons>
+        <axles_count>3</axles_count>
+    </vehicle>
+    <vehicle>
+        <vin>VINCARGO02</vin>
+        <brand>Volvo</brand>
+        <model>FH16</model>
+        <price>11000000.0</price>
+        <load_capacity_tons>30.0</load_capacity_tons>
+        <axles_count>4</axles_count>
+    </vehicle>
+</cargo_fleet>
