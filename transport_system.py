@@ -307,3 +307,78 @@ class FleetManager:
         for cv in c_vehicles:
             print("  •", cv)
         print("=" * 85)
+
+
+# =========================================================================
+# ДЕМОНСТРАЦИОННЫЙ СЦЕНАРИЙ И ТОЧКА ВХОДА В ПРОГРАММУ
+# =========================================================================
+def main() -> None:
+    # 1. Проверка валидации данных и отработки бизнес-исключений
+    print("--- 1. Проверка защитных барьеров (Валидация) ---")
+    try:
+        PassengerVehicle("VIN-FAIL", "Lada", "Vesta", -850000, "Седан", 5)
+    except ValidationError as err:
+        print(f"[Успешный перехват]: Заблокирована некорректная цена ТС -> {err}")
+
+    try:
+        CargoVehicle("VIN-OK", "KAMAZ", " ", 4500000, 15.0, 3)
+    except ValidationError as err:
+        print(f"[Успешный перехват]: Заблокирована пустая модель ТС -> {err}")
+
+    # 2. Наполнение базы через CRUD-операции (Create)
+    print("\n--- 2. Первичное формирование автопарка (CRUD: Create) ---")
+    manager = FleetManager()
+
+    # Добавление легковых автомобилей
+    manager.passenger_repo.create(PassengerVehicle("VINPASS01", "Tesla", "Model S", 7500000, "Лифтбек", 5))
+    manager.passenger_repo.create(PassengerVehicle("VINPASS02", "Mercedes-Benz", "Sprinter", 3800000, "Автобус", 19))
+
+    # Добавление грузовиков
+    manager.cargo_repo.create(CargoVehicle("VINCARGO01", "Scania", "R500", 9200000, 25.5, 3))
+    manager.cargo_repo.create(CargoVehicle("VINCARGO02", "Volvo", "FH16", 11000000, 30.0, 4))
+
+    manager.print_fleet_report()
+
+    # 3. Модификация данных и точечное чтение (CRUD: Update и Read)
+    print("\n--- 3. Корректировка параметров и чтение (CRUD: Update/Read) ---")
+    # Считываем объект по VIN, создаем обновленную модель (например, изменилась цена)
+    car_to_update = manager.passenger_repo.read_by_vin("VINPASS01")
+    updated_car = PassengerVehicle(
+        vin="VINPASS01",
+        brand=car_to_update.brand,
+        model=car_to_update.model,
+        price=8200000.0,  # Изменили стоимость
+        body_type=car_to_update.body_type,
+        seats_count=car_to_update.seats_count
+    )
+    manager.passenger_repo.update("VINPASS01", updated_car)
+    print("Цена на транспортное средство с VIN-кодом VINPASS01 успешно обновлена.")
+
+    # Демонстрация удаления (CRUD: Delete)
+    temp_truck = CargoVehicle("VINTEMP99", "GAZ", "Next", 1500000, 3.5, 2)
+    manager.cargo_repo.create(temp_truck)
+    print(f"Поставлен на временный учет GAZ. Всего грузовиков: {len(manager.cargo_repo.read_all())}")
+    manager.cargo_repo.delete("VINTEMP99")
+    print(f"Снят с учета (удален) GAZ. Осталось грузовиков в базе: {len(manager.cargo_repo.read_all())}")
+
+    # 4. Синхронизация с постоянными хранилищами (Экспорт на диск)
+    print("\n--- 4. Экспорт актуального состояния базы в файлы данных ---")
+    json_path = "fleet_passengers.json"
+    xml_path = "fleet_cargo.xml"
+
+    manager.save_passenger_json(json_path)
+    manager.save_cargo_xml(xml_path)
+    print(f"Файлы '{json_path}' и '{xml_path}' успешно сгенерированы и сохранены.")
+
+    # 5. Демонстрация полной независимой изоляции и десериализации данных
+    print("\n--- 5. Инициализация чистого менеджера и чтение файлов ---")
+    isolated_manager = FleetManager()
+    isolated_manager.load_passenger_json(json_path)
+    isolated_manager.load_cargo_xml(xml_path)
+
+    # Демонстрируем восстановленный с жесткого диска каталог
+    isolated_manager.print_fleet_report()
+
+
+if __name__ == "__main__":
+    main()
