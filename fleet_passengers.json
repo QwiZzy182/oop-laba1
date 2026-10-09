@@ -1,0 +1,18 @@
+[
+    {
+        "vin": "VINPASS01",
+        "brand": "Tesla",
+        "model": "Model S",
+        "price": 8200000.0,
+        "body_type": "Лифтбек",
+        "seats_count": 5
+    },
+    {
+        "vin": "VINPASS02",
+        "brand": "Mercedes-Benz",
+        "model": "Sprinter",
+        "price": 3800000.0,
+        "body_type": "Автобус",
+        "seats_count": 19
+    }
+]
